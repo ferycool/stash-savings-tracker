@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>STASH — Personal Savings Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Syne:wght@700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root {
+    --violet: #7C3AED;
+    --violet-light: #EDE9FE;
+    --violet-mid: #C4B5FD;
+    --rose: #F43F5E;
+    --rose-light: #FFE4E6;
+    --amber: #F59E0B;
+    --amber-light: #FEF3C7;
+    --teal: #0D9488;
+    --teal-light: #CCFBF1;
+    --sky: #0EA5E9;
+    --sky-light: #E0F2FE;
+    --green: #10B981;
+    --green-light: #D1FAE5;
+    --bg: #F8F7FF;
+    --surface: #FFFFFF;
+    --border: #E5E7EB;
+    --text: #111827;
+    --text-muted: #6B7280;
+    --card-shadow: 0 2px 16px rgba(124,58,237,0.08);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    background: var(--bg);
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    top: -150px; right: -100px;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(124,58,237,0.08) 0%, transparent 70%);
+    pointer-events: none; z-index: 0;
+    animation: drift 8s ease-in-out infinite alternate;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: -100px; left: -80px;
+    width: 350px; height: 350px;
+    background: radial-gradient(circle, rgba(244,63,94,0.07) 0%, transparent 70%);
+    pointer-events: none; z-index: 0;
+    animation: drift 10s ease-in-out infinite alternate-reverse;
+  }
+  @keyframes drift { from { transform: translate(0,0); } to { transform: translate(30px, 20px); } }
+
+  .syne { font-family: 'Syne', sans-serif; }
+  .mono { font-family: 'DM Mono', monospace; }
+
+  /* Cards */
+  .glass-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 20px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--card-shadow);
+  }
+  .glass-card::before { display: none; }
+
+  /* Colored cards */
+  .card-violet { background: var(--violet-light); border-color: var(--violet-mid); }
+  .card-rose { background: var(--rose-light); border-color: #FECDD3; }
+  .card-teal { background: var(--teal-light); border-color: #99F6E4; }
+  .card-amber { background: var(--amber-light); border-color: #FDE68A; }
+
+  /* Neo-brutalist buttons */
+  .neo-btn {
+    border: 2px solid var(--text);
+    border-radius: 14px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    transition: all 0.15s;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+  .neo-btn:active { transform: scale(0.97); }
+  .neo-btn-electric { background: var(--violet); color: #fff; border-color: var(--violet); box-shadow: 4px 4px 0 #111; }
+  .neo-btn-electric:active { box-shadow: 1px 1px 0 #111; transform: translate(3px,3px); }
+  .neo-btn-acid { background: var(--green); color: #fff; border-color: var(--green); box-shadow: 4px 4px 0 #111; }
+  .neo-btn-acid:active { box-shadow: 1px 1px 0 #111; transform: translate(3px,3px); }
+  .neo-btn-pink { background: var(--rose); color: #fff; border-color: var(--rose); box-shadow: 4px 4px 0 var(--amber); }
+  .neo-btn-pink:active { box-shadow: 1px 1px 0 var(--amber); transform: translate(3px,3px); }
+  .neo-btn-ghost { background: transparent; color: var(--text); border-color: var(--border); box-shadow: 3px 3px 0 rgba(0,0,0,0.08); }
+  .neo-btn-ghost:active { box-shadow: 1px 1px 0 rgba(0,0,0,0.08); transform: translate(2px,2px); }
+
+  /* Tabs */
+  .tab-btn { transition: all 0.2s; border-radius: 12px; padding: 8px 14px; font-weight: 700; font-size: 0.8rem; cursor: pointer; color: var(--text-muted); }
+  .tab-btn.active { background: var(--violet); color: #fff; }
+
+  /* Progress bar */
+  .prog-bar { height: 10px; border-radius: 99px; background: #E5E7EB; overflow: hidden; }
+  .prog-fill { height: 100%; border-radius: 99px; transition: width 1s cubic-bezier(.4,0,.2,1); }
+
+  /* Badge */
+  .badge {
+    border-radius: 99px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    display: inline-block;
+  }
+
+  /* Toast */
+  #toast {
+    position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--violet); color: #fff;
+    border-radius: 14px; padding: 12px 24px;
+    font-weight: 700; font-size: 0.85rem;
+    opacity: 0; pointer-events: none; z-index: 999;
+    transition: all 0.3s; white-space: nowrap;
+    box-shadow: 0 8px 24px rgba(124,58,237,0.3);
+    border: 2px solid #111;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Bottom nav */
+  .bot-nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 50; }
+
+  /* Input */
+  .stash-input {
+    background: #F9FAFB;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    color: var(--text);
+    padding: 10px 14px;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 0.95rem;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .stash-input:focus { border-color: var(--violet); background: #fff; }
+  .stash-input::placeholder { color: #9CA3AF; }
+
+  /* Milestone glow */
+  .milestone-glow { box-shadow: 0 0 0 3px var(--violet-mid), var(--card-shadow); }
+
+  /* Share card */
+  #shareOverlay { position: fixed; inset: 0; background: rgba(17,24,39,0.7); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  #shareCard { background: linear-gradient(135deg, #7C3AED 0%, #F43F5E 50%, #F59E0B 100%); border: 3px solid #111; border-radius: 24px; width: 100%; max-width: 360px; padding: 28px; position: relative; color: #fff; }
+
+  /* Scroll */
+  .scroll-area { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .scroll-area::-webkit-scrollbar { display: none; }
+
+  /* Page */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* Pulse */
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(124,58,237,0.2), var(--card-shadow); }
+    50% { box-shadow: 0 0 0 8px rgba(124,58,237,0), var(--card-shadow); }
+  }
+  .pulse { animation: pulse-glow 2.5s ease-in-out infinite; }
+
+  /* Sparkle */
+  @keyframes sparkle { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(1.3)} }
+  .sparkle { animation: sparkle 1.5s ease-in-out infinite; }
+
+  select.stash-input option { background: #fff; color: #111; }
+
+  /* Goal card accent bar */
+  .goal-accent { width: 4px; border-radius: 99px; flex-shrink: 0; }
+
+  /* Chip */
+  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 99px; font-size: 0.75rem; font-weight: 600; }
+</style>
+</head>
+<body class="pb-20">
+
+<!-- Toast -->
+<div id="toast">🎉 Action complete!</div>
+
+<!-- Share Overlay -->
+<div id="shareOverlay" style="display:none;">
+  <div id="shareCard">
+    <div class="bebas text-3xl mb-1" style="color:var(--electric)">STASH</div>
+    <div id="shareGoalName" class="font-bold text-xl mb-1"></div>
+    <div id="shareGoalSub" class="text-sm mb-4" style="color:rgba(255,255,255,0.5)"></div>
+    <div class="flex gap-3 mb-4">
+      <div class="glass-card flex-1 p-3 text-center">
+        <div id="sharePct" class="bebas text-4xl" style="color:var(--acid)"></div>
+        <div class="text-xs" style="color:rgba(255,255,255,0.4)">COMPLETE</div>
+      </div>
+      <div class="glass-card flex-1 p-3 text-center">
+        <div id="shareSaved" class="bebas text-4xl" style="color:var(--neon-pink)"></div>
+        <div class="text-xs" style="color:rgba(255,255,255,0.4)">SAVED</div>
+      </div>
+    </div>
+    <div id="shareBadge" class="text-center mb-4 text-2xl"></div>
+    <div class="text-xs text-center mb-4" style="color:rgba(255,255,255,0.3)">Made with STASH · stash.app</div>
+    <div class="flex gap-2">
+      <button onclick="copyShareCard()" class="neo-btn neo-btn-acid flex-1 py-2 text-sm">📋 Copy</button>
+      <button onclick="closeShare()" class="neo-btn neo-btn-ghost flex-1 py-2 text-sm">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- OneDrive Modal -->
+<div id="driveModal" style="display:none;position:fixed;inset:0;background:rgba(17,24,39,0.7);z-index:200;align-items:center;justify-content:center;padding:20px;">
+  <div class="glass-card" style="width:100%;max-width:360px;padding:24px;border-color:var(--violet-mid);">
+    <div class="syne text-2xl font-extrabold mb-1" style="color:var(--violet)">☁️ ONEDRIVE SYNC</div>
+    <div id="onedrive-status" class="text-xs mb-4" style="color:var(--text-muted)">Sync data ke OneDrive kantor kamu</div>
+    <div class="flex flex-col gap-3" id="onedrive-loggedout">
+      <button onclick="onedriveLogin()" class="neo-btn neo-btn-electric py-3 text-sm font-bold">🔑 LOGIN MICROSOFT</button>
+      <div class="text-xs text-center" style="color:var(--text-muted)">Login dengan akun Office/kantor kamu</div>
+    </div>
+    <div class="flex flex-col gap-3" id="onedrive-loggedin" style="display:none!important;">
+      <div id="onedrive-user" class="text-xs text-center py-1 font-bold" style="color:var(--teal)"></div>
+      <button onclick="saveToOneDrive()" class="neo-btn neo-btn-electric py-3 text-sm font-bold">⬆️ SAVE KE ONEDRIVE</button>
+      <button onclick="loadFromOneDrive()" class="neo-btn neo-btn-acid py-3 text-sm font-bold">⬇️ LOAD DARI ONEDRIVE</button>
+      <button onclick="onedriveLogout()" class="neo-btn neo-btn-ghost py-2 text-xs">Logout</button>
+    </div>
+    <button onclick="closeDriveModal()" class="neo-btn neo-btn-ghost w-full py-2 text-sm mt-3">Tutup</button>
+  </div>
+</div>
+
+<!-- APP WRAPPER -->
+<div style="max-width:430px; margin:0 auto; position:relative; z-index:1;">
+
+  <!-- Header -->
+  <div class="px-4 pt-8 pb-2 flex items-center justify-between">
+    <div>
+      <div class="syne text-4xl tracking-wide font-extrabold" style="color:var(--violet)">STASH</div>
+      <div class="text-xs mono" style="color:var(--text-muted)">SAVINGS OS v2.0</div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button id="syncDriveBtn" onclick="showDriveModal()" class="neo-btn neo-btn-ghost px-3 py-2 text-xs">☁️ OneDrive</button>
+      <div class="glass-card px-3 py-2 flex items-center gap-2" style="background:var(--violet-light);border-color:var(--violet-mid);">
+        <div class="w-2 h-2 rounded-full sparkle" style="background:var(--violet)"></div>
+        <span class="text-sm font-bold" id="headerLevel" style="color:var(--violet)">LVL 1</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGES -->
+
+  <!-- PAGE: DASHBOARD -->
+  <div id="page-dashboard" class="page active px-4 pt-2 scroll-area" style="padding-bottom:20px;">
+
+    <!-- Net Worth Banner -->
+    <div class="glass-card p-4 mb-4 pulse" style="background:linear-gradient(135deg,var(--violet) 0%,#A78BFA 100%);border:none;color:#fff;">
+      <div class="text-xs font-bold mb-1" style="color:rgba(255,255,255,0.7)">TOTAL TERSIMPAN</div>
+      <div class="syne text-5xl font-extrabold" id="totalSaved">$0</div>
+      <div class="text-xs mt-1" style="color:rgba(255,255,255,0.7)"><span id="goalCount">0</span> goals · 🔥 <span id="streakDays">0</span>-hari streak</div>
+    </div>
+
+    <!-- Quick Add -->
+    <div class="glass-card p-4 mb-4">
+      <div class="text-xs font-bold mb-3" style="color:var(--violet)">⚡ QUICK DEPOSIT</div>
+      <div class="flex gap-2 mb-3">
+        <select class="stash-input" id="quickGoalSelect" style="flex:1"></select>
+        <input type="number" class="stash-input" id="quickAmount" placeholder="$0" style="width:90px;" min="0">
+      </div>
+      <button onclick="quickDeposit()" class="neo-btn neo-btn-electric w-full py-2 text-sm">+ TAMBAH TABUNGAN</button>
+    </div>
+
+    <!-- Goals List -->
+    <div class="text-xs font-bold mb-3 flex items-center justify-between" style="color:var(--text-muted)">
+      <span>GOALS KAMU</span>
+      <button onclick="showTab('goals')" class="text-xs font-bold" style="color:var(--violet)">+ GOAL BARU</button>
+    </div>
+    <div id="goalsList"></div>
+
+    <!-- Today's Challenge -->
+    <div class="glass-card p-4 mt-2" style="border-left:4px solid var(--rose);">
+      <div class="flex items-center gap-2 mb-3">
+        <div class="text-lg">🎯</div>
+        <div>
+          <div class="text-xs font-bold" style="color:var(--rose)">MICRO-CHALLENGE HARI INI</div>
+          <div class="text-xs" style="color:var(--text-muted)" id="challengeDate"></div>
+        </div>
+      </div>
+      <div id="dailyChallenge" class="text-sm font-medium mb-3" style="line-height:1.5;color:var(--text)"></div>
+      <div class="flex gap-2">
+        <button onclick="completeChallenge()" id="challengeBtn" class="neo-btn neo-btn-pink flex-1 py-2 text-xs">ACCEPT +$<span id="challengeAmt">5</span></button>
+        <button onclick="skipChallenge()" class="neo-btn neo-btn-ghost px-3 py-2 text-xs">SKIP</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: GOALS -->
+  <div id="page-goals" class="page px-4 pt-2 scroll-area" style="padding-bottom:20px;">
+    <div class="text-xs font-bold mb-4" style="color:var(--text-muted)">BUAT GOAL BARU</div>
+
+    <div class="glass-card p-4 mb-4">
+      <div class="flex flex-col gap-3">
+        <div>
+          <div class="text-xs mb-1 font-semibold" style="color:var(--text-muted)">NAMA GOAL</div>
+          <input type="text" class="stash-input" id="newGoalName" placeholder="e.g. Liburan Switzerland 2026">
+        </div>
+        <div>
+          <div class="text-xs mb-1 font-semibold" style="color:var(--text-muted)">TARGET JUMLAH ($)</div>
+          <input type="number" class="stash-input" id="newGoalTarget" placeholder="5000" min="1">
+        </div>
+        <div>
+          <div class="text-xs mb-1 font-semibold" style="color:var(--text-muted)">TARGET TANGGAL</div>
+          <input type="date" class="stash-input" id="newGoalDate">
+        </div>
+        <div>
+          <div class="text-xs mb-1 font-semibold" style="color:var(--text-muted)">RENCANA TABUNGAN BULANAN ($)</div>
+          <input type="number" class="stash-input" id="newGoalMonthly" placeholder="500" min="0">
+        </div>
+        <div>
+          <div class="text-xs mb-1 font-semibold" style="color:var(--text-muted)">PILIH IKON</div>
+          <div class="flex gap-2 flex-wrap" id="emojiPicker">
+            <!-- generated by JS -->
+          </div>
+        </div>
+        <button onclick="addGoal()" class="neo-btn neo-btn-acid py-3 font-bold mt-1">CREATE GOAL 🚀</button>
+      </div>
+    </div>
+
+    <!-- All Goals Detail -->
+    <div class="text-xs font-bold mb-3" style="color:var(--text-muted)">SEMUA GOALS</div>
+    <div id="allGoalsDetail"></div>
+  </div>
+
+  <!-- PAGE: ANALYSIS -->
+  <div id="page-analysis" class="page px-4 pt-2 scroll-area" style="padding-bottom:20px;">
+    <div class="text-xs font-bold mb-4" style="color:var(--text-muted)">PLAN vs ACTUAL ANALYSIS</div>
+
+    <div id="analysisGoalSelect" class="flex gap-2 mb-4 overflow-x-auto pb-1" style="-webkit-overflow-scrolling:touch;"></div>
+
+    <div class="glass-card p-4 mb-4">
+      <canvas id="pvAChart" height="220"></canvas>
+    </div>
+
+    <div id="analysisStats" class="grid grid-cols-2 gap-3 mb-4"></div>
+
+    <div class="glass-card p-4 mb-4">
+      <div class="text-xs font-bold mb-3" style="color:var(--violet)">MONTHLY BREAKDOWN</div>
+      <div id="monthlyTable" class="text-sm"></div>
+    </div>
+  </div>
+
+  <!-- PAGE: BADGES -->
+  <div id="page-badges" class="page px-4 pt-2 scroll-area" style="padding-bottom:20px;">
+    <div class="text-xs font-bold mb-1" style="color:var(--text-muted)">ACHIEVEMENTS</div>
+    <div class="text-xs mb-4" style="color:var(--text-muted)">Unlock badges by crushing your goals</div>
+    <div id="badgeGrid" class="grid grid-cols-2 gap-3"></div>
+  </div>
+
+</div><!-- /app wrapper -->
+
+<!-- Bottom Nav -->
+<div class="bot-nav">
+  <div style="max-width:430px;margin:0 auto;">
+    <div class="glass-card mx-3 mb-3 px-2 py-3 flex justify-around" style="border-radius:20px;background:#fff;border-color:var(--border);">
+      <button onclick="showTab('dashboard')" class="tab-btn active" id="tab-dashboard">🏠 Home</button>
+      <button onclick="showTab('goals')" class="tab-btn" id="tab-goals">🎯 Goals</button>
+      <button onclick="showTab('analysis')" class="tab-btn" id="tab-analysis">📊 Analyse</button>
+      <button onclick="showTab('badges')" class="tab-btn" id="tab-badges">🏆 Badges</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+// Clear old demo data if it contains the hardcoded demo goals
+(function() {
+  const raw = localStorage.getItem('stash_state');
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      const hasDemo = parsed.goals && parsed.goals.some(g => g.id === 1 || g.id === 2);
+      if (hasDemo) { localStorage.removeItem('stash_state'); }
+    } catch(e) { localStorage.removeItem('stash_state'); }
+  }
+})();
+
+let state = JSON.parse(localStorage.getItem('stash_state') || 'null') || {
+  goals: [],
+  challenges: { lastDate: null, completed: false, skipped: false },
+  streak: 0,
+  lastActiveDate: null,
+  xp: 0
+};
+
+function saveState() {
+  localStorage.setItem('stash_state', JSON.stringify(state));
+}
+
+// ═══════════════════════════════════════════════
+// ONEDRIVE SYNC — Native OAuth2 PKCE (no library)
+// ═══════════════════════════════════════════════
+const OD_CLIENT_ID = '450122b1-6dba-4c04-9640-3121f51146d2';
+const OD_TENANT_ID = '34128bde-ccb7-42cc-a955-c506f7e4f2a4';
+const OD_REDIRECT   = window.location.href.split('?')[0].split('#')[0];
+const OD_SCOPE      = 'https://graph.microsoft.com/Files.ReadWrite offline_access';
+const GRAPH_BASE    = 'https://graph.microsoft.com/v1.0';
+const ONEDRIVE_FILE = 'stash_savings_data.json';
+let isSyncing = false;
+
+// ── PKCE helpers ──
+async function sha256(plain) {
+  const enc = new TextEncoder().encode(plain);
+  const hash = await crypto.subtle.digest('SHA-256', enc);
+  return hash;
+}
+function base64urlencode(buf) {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+function generateRandom(len) {
+  const arr = new Uint8Array(len);
+  crypto.getRandomValues(arr);
+  return base64urlencode(arr);
+}
+async function createPKCE() {
+  const verifier  = generateRandom(48);
+  const challenge = base64urlencode(await sha256(verifier));
+  return { verifier, challenge };
+}
+
+// ── Token storage ──
+function getTokens()   { try { return JSON.parse(localStorage.getItem('od_tokens') || 'null'); } catch(e) { return null; } }
+function setTokens(t)  { localStorage.setItem('od_tokens', JSON.stringify(t)); }
+function clearTokens() { localStorage.removeItem('od_tokens'); localStorage.removeItem('od_pkce_verifier'); }
+function isLoggedIn()  { return !!getTokens()?.access_token; }
+
+// ── Login ──
+async function onedriveLogin() {
+  const { verifier, challenge } = await createPKCE();
+  localStorage.setItem('od_pkce_verifier', verifier);
+  const params = new URLSearchParams({
+    client_id:             OD_CLIENT_ID,
+    response_type:         'code',
+    redirect_uri:          OD_REDIRECT,
+    scope:                 OD_SCOPE,
+    code_challenge:        challenge,
+    code_challenge_method: 'S256',
+    response_mode:         'query'
+  });
+  window.location.href = `https://login.microsoftonline.com/${OD_TENANT_ID}/oauth2/v2.0/authorize?${params}`;
+}
+
+// ── Handle redirect ──
+async function handleOAuthRedirect() {
+  const params   = new URLSearchParams(window.location.search);
+  const code     = params.get('code');
+  const error    = params.get('error');
+  if (error) { toast('⚠️ Login gagal: ' + params.get('error_description')); cleanUrl(); return; }
+  if (!code)  return;
+  const verifier = localStorage.getItem('od_pkce_verifier');
+  if (!verifier) { toast('⚠️ PKCE verifier hilang, coba login lagi'); cleanUrl(); return; }
+  updateSyncBtn('⏳ Logging in...');
+  try {
+    const resp = await fetch(`https://login.microsoftonline.com/${OD_TENANT_ID}/oauth2/v2.0/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id:     OD_CLIENT_ID,
+        grant_type:    'authorization_code',
+        code,
+        redirect_uri:  OD_REDIRECT,
+        code_verifier: verifier,
+        scope:         OD_SCOPE
+      })
+    });
+    const tokens = await resp.json();
+    if (tokens.access_token) {
+      tokens.expires_at = Date.now() + tokens.expires_in * 1000;
+      setTokens(tokens);
+      localStorage.removeItem('od_pkce_verifier');
+      cleanUrl();
+      updateOneDriveUI();
+      toast('✅ Login Microsoft berhasil!');
+      showDriveModal();
+    } else {
+      throw new Error(tokens.error_description || 'Token exchange failed');
+    }
+  } catch(e) {
+    toast('⚠️ Login gagal: ' + e.message);
+    cleanUrl();
+  }
+  updateSyncBtn(isLoggedIn() ? '☁️ OneDrive ✓' : '☁️ Sync OneDrive');
+}
+
+function cleanUrl() {
+  window.history.replaceState({}, document.title, window.location.pathname);
+}
+
+// ── Refresh token ──
+async function refreshAccessToken() {
+  const tokens = getTokens();
+  if (!tokens?.refresh_token) return null;
+  try {
+    const resp = await fetch(`https://login.microsoftonline.com/${OD_TENANT_ID}/oauth2/v2.0/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id:     OD_CLIENT_ID,
+        grant_type:    'refresh_token',
+        refresh_token: tokens.refresh_token,
+        scope:         OD_SCOPE
+      })
+    });
+    const newTokens = await resp.json();
+    if (newTokens.access_token) {
+      newTokens.expires_at = Date.now() + newTokens.expires_in * 1000;
+      setTokens(newTokens);
+      return newTokens.access_token;
+    }
+  } catch(e) {}
+  return null;
+}
+
+async function getAccessToken() {
+  let tokens = getTokens();
+  if (!tokens) return null;
+  // Refresh if expiring within 5 min
+  if (Date.now() > tokens.expires_at - 300000) {
+    const newToken = await refreshAccessToken();
+    return newToken;
+  }
+  return tokens.access_token;
+}
+
+// ── Logout ──
+function onedriveLogout() {
+  clearTokens();
+  updateOneDriveUI();
+  toast('👋 Logged out dari OneDrive');
+}
+
+// ── UI ──
+function updateOneDriveUI() {
+  const loggedOut = document.getElementById('onedrive-loggedout');
+  const loggedIn  = document.getElementById('onedrive-loggedin');
+  const userEl    = document.getElementById('onedrive-user');
+  if (isLoggedIn()) {
+    loggedOut.style.display = 'none';
+    loggedIn.style.cssText  = 'display:flex;flex-direction:column;gap:12px;';
+    if (userEl) userEl.textContent = '✅ Terhubung ke Microsoft';
+    updateSyncBtn('☁️ OneDrive ✓');
+  } else {
+    loggedOut.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
+    loggedIn.style.display  = 'none';
+    updateSyncBtn('☁️ Sync OneDrive');
+  }
+}
+
+// ── Save ──
+async function saveToOneDrive() {
+  if (isSyncing) return;
+  isSyncing = true;
+  updateSyncBtn('⏳ Saving...');
+  const token = await getAccessToken();
+  if (!token) { toast('⚠️ Silakan login ulang'); isSyncing = false; updateOneDriveUI(); return; }
+  try {
+    const res = await fetch(`${GRAPH_BASE}/me/drive/root:/${ONEDRIVE_FILE}:/content`, {
+      method:  'PUT',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body:    JSON.stringify(state, null, 2)
+    });
+    if (res.ok) { toast('☁️ Tersimpan di OneDrive!'); }
+    else        { throw new Error('HTTP ' + res.status); }
+  } catch(e) { toast('⚠️ Gagal save: ' + e.message); }
+  isSyncing = false;
+  updateSyncBtn(isLoggedIn() ? '☁️ OneDrive ✓' : '☁️ Sync OneDrive');
+}
+
+// ── Load ──
+async function loadFromOneDrive() {
+  if (isSyncing) return;
+  isSyncing = true;
+  updateSyncBtn('⏳ Loading...');
+  const token = await getAccessToken();
+  if (!token) { toast('⚠️ Silakan login ulang'); isSyncing = false; updateOneDriveUI(); return; }
+  try {
+    const res = await fetch(`${GRAPH_BASE}/me/drive/root:/${ONEDRIVE_FILE}:/content`, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (res.status === 404) { toast('ℹ️ Belum ada data di OneDrive. Save dulu!'); isSyncing = false; updateSyncBtn('☁️ OneDrive ✓'); return; }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const loaded = await res.json();
+    if (loaded?.goals) {
+      state = loaded;
+      saveState();
+      renderDashboard();
+      closeDriveModal();
+      toast('☁️ Data berhasil diload dari OneDrive!');
+    } else { throw new Error('Format data tidak valid'); }
+  } catch(e) { toast('⚠️ Gagal load: ' + e.message); }
+  isSyncing = false;
+  updateSyncBtn(isLoggedIn() ? '☁️ OneDrive ✓' : '☁️ Sync OneDrive');
+}
+
+function updateSyncBtn(label) {
+  const btn = document.getElementById('syncDriveBtn');
+  if (btn) btn.textContent = label;
+}
+
+// Auto-sync debounced
+let driveTimer = null;
+function saveStateAndSync() {
+  saveState();
+  clearTimeout(driveTimer);
+  driveTimer = setTimeout(() => {
+    if (isLoggedIn()) saveToOneDrive();
+  }, 5000);
+}
+
+// ── Init ──
+function initMSAL() {
+  handleOAuthRedirect();
+  updateOneDriveUI();
+}
+
+// ═══════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════
+let currentTab = 'dashboard';
+function showTab(tab) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + tab).classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+  currentTab = tab;
+  if (tab === 'dashboard') renderDashboard();
+  if (tab === 'goals') renderGoalsPage();
+  if (tab === 'analysis') renderAnalysis();
+  if (tab === 'badges') renderBadges();
+}
+
+// ═══════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ═══════════════════════════════════════════════
+// LEVEL SYSTEM
+// ═══════════════════════════════════════════════
+const LEVELS = [
+  { min: 0, label: 'Seed Sower', icon: '🌱' },
+  { min: 100, label: 'Budget Scout', icon: '🔭' },
+  { min: 300, label: 'Stack Builder', icon: '🧱' },
+  { min: 600, label: 'Coin Crusher', icon: '💥' },
+  { min: 1000, label: 'Flow Master', icon: '🌊' },
+  { min: 2000, label: 'Wealth Legend', icon: '👑' }
+];
+function getLevel() {
+  let lv = LEVELS[0];
+  for (const l of LEVELS) { if (state.xp >= l.min) lv = l; }
+  return lv;
+}
+function getLevelProgress() {
+  const levels = LEVELS;
+  for (let i = 0; i < levels.length - 1; i++) {
+    if (state.xp < levels[i+1].min) {
+      const pct = ((state.xp - levels[i].min) / (levels[i+1].min - levels[i].min)) * 100;
+      return { pct: Math.round(pct), next: levels[i+1] };
+    }
+  }
+  return { pct: 100, next: null };
+}
+
+// ═══════════════════════════════════════════════
+// DASHBOARD RENDER
+// ═══════════════════════════════════════════════
+function renderDashboard() {
+  const total = state.goals.reduce((s, g) => s + g.saved, 0);
+  document.getElementById('totalSaved').textContent = '$' + total.toLocaleString();
+  document.getElementById('goalCount').textContent = state.goals.length;
+  document.getElementById('streakDays').textContent = state.streak;
+
+  const lv = getLevel();
+  document.getElementById('headerLevel').textContent = lv.icon + ' ' + lv.label.split(' ')[0].toUpperCase();
+
+  // Quick select
+  const sel = document.getElementById('quickGoalSelect');
+  sel.innerHTML = state.goals.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+
+  // Goals list
+  const GOAL_COLORS = [
+    { bar: 'linear-gradient(90deg,#7C3AED,#A78BFA)', accent: '#7C3AED', bg: '#EDE9FE', text: '#5B21B6' },
+    { bar: 'linear-gradient(90deg,#F43F5E,#FB7185)', accent: '#F43F5E', bg: '#FFE4E6', text: '#BE123C' },
+    { bar: 'linear-gradient(90deg,#0D9488,#34D399)', accent: '#0D9488', bg: '#CCFBF1', text: '#0F766E' },
+    { bar: 'linear-gradient(90deg,#F59E0B,#FCD34D)', accent: '#F59E0B', bg: '#FEF3C7', text: '#B45309' },
+    { bar: 'linear-gradient(90deg,#0EA5E9,#38BDF8)', accent: '#0EA5E9', bg: '#E0F2FE', text: '#0369A1' },
+  ];
+  const gl = document.getElementById('goalsList');
+  gl.innerHTML = state.goals.map((g, i) => {
+    const pct = Math.min(100, Math.round((g.saved / g.target) * 100));
+    const remaining = g.target - g.saved;
+    const c = GOAL_COLORS[i % GOAL_COLORS.length];
+    const daysLeft = Math.max(0, Math.round((new Date(g.deadline) - new Date()) / 86400000));
+    return `
+    <div class="glass-card p-4 mb-3" style="border-left: 4px solid ${c.accent};">
+      <div class="flex items-start justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <span class="text-2xl">${g.emoji}</span>
+          <div>
+            <div class="font-bold text-sm" style="color:var(--text)">${g.name}</div>
+            <div class="text-xs mono" style="color:var(--text-muted)">${daysLeft} hari lagi</div>
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="syne text-2xl font-extrabold" style="color:${c.accent}">${pct}%</div>
+        </div>
+      </div>
+      <div class="prog-bar mb-2">
+        <div class="prog-fill" style="width:${pct}%;background:${c.bar}"></div>
+      </div>
+      <div class="flex justify-between text-xs mono mb-3" style="color:var(--text-muted)">
+        <span style="color:${c.accent};font-weight:600">$${g.saved.toLocaleString()} tersimpan</span>
+        <span>$${remaining.toLocaleString()} lagi</span>
+      </div>
+      <button onclick="openShare(${g.id})" class="neo-btn neo-btn-ghost w-full py-2 text-xs">✨ SHARE PROGRESS</button>
+    </div>`;
+  }).join('');
+
+  // Daily challenge
+  renderDailyChallenge();
+}
+
+// ═══════════════════════════════════════════════
+// GOALS PAGE
+// ═══════════════════════════════════════════════
+const EMOJIS = ['✈️','💻','🏠','🚗','📱','🎓','💍','🏋️','🌴','🎮','🎸','📷','👟','🍜','🎨','🌍'];
+let selectedEmoji = '✈️';
+
+function renderGoalsPage() {
+  const ep = document.getElementById('emojiPicker');
+  ep.innerHTML = EMOJIS.map(e => `
+    <div onclick="selectEmoji('${e}')" id="emoji-${e.codePointAt(0)}"
+      class="text-2xl cursor-pointer p-1 rounded-lg transition-all"
+      style="background:${selectedEmoji===e?'rgba(0,245,255,0.2)':'transparent'};border:1.5px solid ${selectedEmoji===e?'var(--electric)':'transparent'}">
+      ${e}
+    </div>`).join('');
+
+  // Set default date
+  const dt = document.getElementById('newGoalDate');
+  if (!dt.value) { const d = new Date(); d.setFullYear(d.getFullYear()+1); dt.value = d.toISOString().slice(0,10); }
+
+  // All goals detail
+  const agd = document.getElementById('allGoalsDetail');
+  agd.innerHTML = state.goals.map((g, i) => {
+    const pct = Math.min(100, Math.round((g.saved / g.target) * 100));
+    const COLORS = ['#7C3AED','#F43F5E','#0D9488','#F59E0B','#0EA5E9'];
+    const c = COLORS[i % COLORS.length];
+    return `
+    <div class="glass-card p-4 mb-3" style="border-left:4px solid ${c}">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="text-3xl">${g.emoji}</div>
+        <div class="flex-1">
+          <div class="font-bold" style="color:var(--text)">${g.name}</div>
+          <div class="text-xs mono" style="color:var(--text-muted)">Target: $${g.target.toLocaleString()} · Bulanan: $${g.monthly}</div>
+        </div>
+        <button onclick="deleteGoal(${g.id})" class="text-xs px-2 py-1 rounded-lg font-bold" style="background:var(--rose-light);color:var(--rose)">✕</button>
+      </div>
+      <div class="prog-bar mb-2">
+        <div class="prog-fill" style="width:${pct}%;background:${c}"></div>
+      </div>
+      <div class="flex gap-2 mt-3">
+        <input type="number" id="dep-${g.id}" class="stash-input" placeholder="Deposit $" style="flex:1">
+        <button onclick="depositToGoal(${g.id})" class="neo-btn neo-btn-electric px-4 py-2 text-xs">+ADD</button>
+      </div>
+    </div>`;
+  }).join('') || '<div class="text-center text-sm py-8" style="color:var(--text-muted)">Belum ada goals. Buat goal baru di atas ⬆️</div>';
+}
+
+function selectEmoji(e) {
+  selectedEmoji = e;
+  renderGoalsPage();
+}
+
+function addGoal() {
+  const name = document.getElementById('newGoalName').value.trim();
+  const target = parseFloat(document.getElementById('newGoalTarget').value);
+  const deadline = document.getElementById('newGoalDate').value;
+  const monthly = parseFloat(document.getElementById('newGoalMonthly').value) || 0;
+  if (!name || !target || !deadline) { toast('⚠️ Fill in all fields!'); return; }
+
+  const newGoal = {
+    id: Date.now(), name, emoji: selectedEmoji,
+    target, saved: 0, monthly, deadline, history: []
+  };
+  state.goals.push(newGoal);
+  state.xp += 50;
+  saveStateAndSync();
+  toast('🚀 Goal created! +50 XP');
+  document.getElementById('newGoalName').value = '';
+  document.getElementById('newGoalTarget').value = '';
+  document.getElementById('newGoalMonthly').value = '';
+  renderGoalsPage();
+  renderDashboard();
+}
+
+function deleteGoal(id) {
+  state.goals = state.goals.filter(g => g.id !== id);
+  saveStateAndSync(); renderGoalsPage(); renderDashboard();
+  toast('🗑️ Goal removed');
+}
+
+function depositToGoal(id) {
+  const val = parseFloat(document.getElementById('dep-' + id).value);
+  if (!val || val <= 0) { toast('⚠️ Enter a valid amount'); return; }
+  const g = state.goals.find(g => g.id === id);
+  if (!g) return;
+  g.saved = Math.min(g.target, g.saved + val);
+  // Record in history
+  const now = new Date().toISOString().slice(0,7);
+  const existing = g.history.find(h => h.month === now);
+  if (existing) existing.actual += val;
+  else g.history.push({ month: now, planned: g.monthly, actual: val });
+  state.xp += Math.round(val / 10);
+  saveStateAndSync(); renderGoalsPage(); renderDashboard();
+  toast(`💰 +$${val} added! +${Math.round(val/10)} XP`);
+}
+
+function quickDeposit() {
+  const id = parseInt(document.getElementById('quickGoalSelect').value);
+  const val = parseFloat(document.getElementById('quickAmount').value);
+  if (!val || val <= 0) { toast('⚠️ Enter amount'); return; }
+  const g = state.goals.find(g => g.id === id);
+  if (!g) return;
+  g.saved = Math.min(g.target, g.saved + val);
+  const now = new Date().toISOString().slice(0,7);
+  const existing = g.history.find(h => h.month === now);
+  if (existing) existing.actual += val;
+  else g.history.push({ month: now, planned: g.monthly, actual: val });
+  state.xp += Math.round(val / 10);
+  document.getElementById('quickAmount').value = '';
+  saveStateAndSync(); renderDashboard();
+  toast(`⚡ Quick deposit +$${val}!`);
+}
+
+// ═══════════════════════════════════════════════
+// DAILY CHALLENGE ENGINE
+// ═══════════════════════════════════════════════
+const CHALLENGES = [
+  { text: 'Skip your afternoon coffee today ☕ — that\'s money saved!', amt: 6 },
+  { text: 'Cook dinner instead of ordering out 🍳', amt: 18 },
+  { text: 'Cancel one unused streaming sub this week 📺', amt: 15 },
+  { text: 'Walk instead of taking a ride today 🚶', amt: 12 },
+  { text: 'No impulse purchases for 24 hours 🛍️', amt: 20 },
+  { text: 'Transfer $5 to your top goal RIGHT NOW 💸', amt: 5 },
+  { text: 'Pack your own lunch today 🥗', amt: 14 },
+  { text: 'Round up your last 3 purchases and save the difference 🔼', amt: 8 },
+  { text: 'Delete one food delivery app to resist temptation 📱', amt: 25 },
+  { text: 'Switch off unused lights & devices — save on the bill 💡', amt: 3 },
+];
+
+function renderDailyChallenge() {
+  const today = new Date().toDateString();
+  const idx = Math.abs(hashStr(today)) % CHALLENGES.length;
+  const ch = CHALLENGES[idx];
+  document.getElementById('dailyChallenge').textContent = ch.text;
+  document.getElementById('challengeAmt').textContent = ch.amt;
+  document.getElementById('challengeDate').textContent = new Date().toLocaleDateString('en-SG', { weekday:'long', month:'short', day:'numeric' });
+
+  const isDone = state.challenges.lastDate === today && state.challenges.completed;
+  const btn = document.getElementById('challengeBtn');
+  if (isDone) { btn.textContent = '✅ COMPLETED'; btn.disabled = true; btn.style.opacity = '0.5'; }
+  else { btn.disabled = false; btn.style.opacity = '1'; btn.innerHTML = `ACCEPT +$<span id="challengeAmt">${ch.amt}</span>`; }
+}
+
+function completeChallenge() {
+  const today = new Date().toDateString();
+  const idx = Math.abs(hashStr(today)) % CHALLENGES.length;
+  const amt = CHALLENGES[idx].amt;
+  state.challenges = { lastDate: today, completed: true, skipped: false };
+  state.xp += 30;
+  // Add to first goal
+  if (state.goals.length > 0) {
+    state.goals[0].saved = Math.min(state.goals[0].target, state.goals[0].saved + amt);
+  }
+  // Update streak
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  if (state.lastActiveDate === yesterday.toDateString()) state.streak++;
+  else if (state.lastActiveDate !== today) state.streak = 1;
+  state.lastActiveDate = today;
+  saveStateAndSync(); renderDashboard();
+  toast(`🎯 Challenge complete! +$${amt} saved +30 XP`);
+}
+
+function skipChallenge() {
+  const today = new Date().toDateString();
+  state.challenges = { lastDate: today, completed: false, skipped: true };
+  saveStateAndSync(); toast('Challenge skipped. Tomorrow is a new day! 💪');
+}
+
+function hashStr(s) { let h=0; for(let i=0;i<s.length;i++){h=Math.imul(31,h)+s.charCodeAt(i)|0;} return h; }
+
+// ═══════════════════════════════════════════════
+// PLAN vs ACTUAL ANALYSIS ENGINE
+// ═══════════════════════════════════════════════
+// LOGIC:
+// Each goal stores a `history` array of { month: 'YYYY-MM', planned: N, actual: N }
+// The engine aggregates this by month, computes:
+//   - variance = actual - planned (positive = ahead, negative = behind)
+//   - cumulative deviation
+//   - consistency score = months where actual >= planned / total months
+// Chart.js renders grouped bars (planned=blue, actual=acid green)
+
+let pvAChart = null;
+let selectedAnalysisGoal = null;
+
+function renderAnalysis() {
+  const cont = document.getElementById('analysisGoalSelect');
+  if (state.goals.length === 0) { cont.innerHTML = '<div class="text-sm" style="color:var(--text-muted)">Belum ada goals.</div>'; return; }
+  if (!selectedAnalysisGoal) selectedAnalysisGoal = state.goals[0].id;
+
+  cont.innerHTML = state.goals.map(g => `
+    <button onclick="selectAnalysisGoal(${g.id})" class="neo-btn px-4 py-2 text-xs flex-shrink-0
+      ${selectedAnalysisGoal===g.id?'neo-btn-electric':'neo-btn-ghost'}">${g.emoji} ${g.name.split(' ')[0]}</button>
+  `).join('');
+
+  const goal = state.goals.find(g => g.id === selectedAnalysisGoal);
+  if (!goal) return;
+
+  renderPvAChart(goal);
+  renderAnalysisStats(goal);
+  renderMonthlyTable(goal);
+}
+
+function selectAnalysisGoal(id) {
+  selectedAnalysisGoal = id;
+  renderAnalysis();
+}
+
+function renderPvAChart(goal) {
+  const hist = goal.history;
+  if (!hist || hist.length === 0) {
+    document.getElementById('pvAChart').parentElement.innerHTML = '<div class="text-center py-8 text-sm" style="color:var(--text-muted)">Belum ada riwayat. Buat deposit dulu!</div>';
+    return;
+  }
+  const labels = hist.map(h => { const d = new Date(h.month + '-01'); return d.toLocaleDateString('en', { month: 'short', year: '2-digit' }); });
+  const plannedData = hist.map(h => h.planned);
+  const actualData = hist.map(h => h.actual);
+
+  const ctx = document.getElementById('pvAChart');
+  if (pvAChart) { pvAChart.destroy(); pvAChart = null; }
+
+  pvAChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Planned', data: plannedData, backgroundColor: 'rgba(124,58,237,0.15)', borderColor: '#7C3AED', borderWidth: 2, borderRadius: 6 },
+        { label: 'Actual', data: actualData, backgroundColor: 'rgba(13,148,136,0.3)', borderColor: '#0D9488', borderWidth: 2, borderRadius: 6 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#6B7280', font: { family: 'Plus Jakarta Sans', size: 11 } } } },
+      scales: {
+        x: { ticks: { color: '#9CA3AF', font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.05)' } },
+        y: { ticks: { color: '#9CA3AF', font: { size: 10 }, callback: v => '$'+v }, grid: { color: 'rgba(0,0,0,0.05)' } }
+      }
+    }
+  });
+}
+
+function renderAnalysisStats(goal) {
+  const hist = goal.history || [];
+  const totalPlanned = hist.reduce((s, h) => s + h.planned, 0);
+  const totalActual = hist.reduce((s, h) => s + h.actual, 0);
+  const variance = totalActual - totalPlanned;
+  const consistencyMonths = hist.filter(h => h.actual >= h.planned).length;
+  const consistency = hist.length > 0 ? Math.round((consistencyMonths / hist.length) * 100) : 0;
+
+  const stats = [
+    { label: 'Total Planned', val: '$' + totalPlanned.toLocaleString(), color: 'var(--violet)' },
+    { label: 'Total Actual', val: '$' + totalActual.toLocaleString(), color: 'var(--teal)' },
+    { label: 'Net Variance', val: (variance >= 0 ? '+' : '') + '$' + variance.toLocaleString(), color: variance >= 0 ? 'var(--green)' : 'var(--rose)' },
+    { label: 'Consistency', val: consistency + '%', color: consistency >= 70 ? 'var(--green)' : 'var(--amber)' },
+  ];
+
+  document.getElementById('analysisStats').innerHTML = stats.map(s => `
+    <div class="glass-card p-3 text-center">
+      <div class="syne text-2xl font-extrabold" style="color:${s.color}">${s.val}</div>
+      <div class="text-xs" style="color:var(--text-muted)">${s.label}</div>
+    </div>`).join('');
+}
+
+function renderMonthlyTable(goal) {
+  const hist = goal.history || [];
+  if (!hist.length) { document.getElementById('monthlyTable').innerHTML = '<div class="text-sm" style="color:var(--text-muted)">Belum ada riwayat.</div>'; return; }
+  document.getElementById('monthlyTable').innerHTML = `
+    <div class="grid text-xs font-bold mb-2" style="grid-template-columns:1fr 1fr 1fr 1fr;color:var(--text-muted)">
+      <span>BULAN</span><span class="text-right">PLAN</span><span class="text-right">AKTUAL</span><span class="text-right">DIFF</span>
+    </div>` +
+    hist.map(h => {
+      const diff = h.actual - h.planned;
+      const col = diff >= 0 ? 'var(--green)' : 'var(--rose)';
+      const d = new Date(h.month + '-01');
+      return `<div class="grid py-2 text-xs" style="grid-template-columns:1fr 1fr 1fr 1fr;border-top:1px solid var(--border)">
+        <span style="color:var(--text)">${d.toLocaleDateString('en', { month: 'short', year: '2-digit' })}</span>
+        <span class="text-right mono" style="color:var(--text-muted)">$${h.planned}</span>
+        <span class="text-right mono" style="color:var(--text)">$${h.actual}</span>
+        <span class="text-right mono font-bold" style="color:${col}">${diff>=0?'+':''}$${diff}</span>
+      </div>`;
+    }).join('');
+}
+
+// ═══════════════════════════════════════════════
+// BADGES
+// ═══════════════════════════════════════════════
+const ALL_BADGES = [
+  { id: 'seed', icon: '🌱', name: 'Seed Sower', desc: 'Create your first goal', check: s => s.goals.length >= 1 },
+  { id: 'first100', icon: '💯', name: 'First Century', desc: 'Save $100 total', check: s => s.goals.reduce((a,g)=>a+g.saved,0) >= 100 },
+  { id: 'streak3', icon: '🔥', name: 'On Fire', desc: '3-day challenge streak', check: s => s.streak >= 3 },
+  { id: 'streak7', icon: '⚡', name: 'Week Warrior', desc: '7-day streak', check: s => s.streak >= 7 },
+  { id: 'twogoals', icon: '🎯', name: 'Multi-Tasker', desc: 'Track 2+ goals', check: s => s.goals.length >= 2 },
+  { id: 'stack500', icon: '🧱', name: 'Stack Builder', desc: 'Save $500 total', check: s => s.goals.reduce((a,g)=>a+g.saved,0) >= 500 },
+  { id: 'stack1k', icon: '💎', name: 'Diamond Hands', desc: 'Save $1,000 total', check: s => s.goals.reduce((a,g)=>a+g.saved,0) >= 1000 },
+  { id: 'xp500', icon: '🌊', name: 'Flow Master', desc: 'Earn 500 XP', check: s => s.xp >= 500 },
+  { id: 'fullgoal', icon: '🏆', name: 'Goal Crusher', desc: 'Complete a goal 100%', check: s => s.goals.some(g => g.saved >= g.target) },
+  { id: 'legend', icon: '👑', name: 'Wealth Legend', desc: 'Earn 2000 XP', check: s => s.xp >= 2000 },
+];
+
+function renderBadges() {
+  const lv = getLevel();
+  const lvProg = getLevelProgress();
+
+  document.getElementById('badgeGrid').innerHTML = `
+    <div class="col-span-2 glass-card p-4 mb-1">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="text-4xl">${lv.icon}</div>
+        <div>
+          <div class="font-bold">${lv.label}</div>
+          <div class="text-xs mono" style="color:var(--text-muted)">${state.xp} XP total</div>
+        </div>
+      </div>
+      <div class="prog-bar">
+        <div class="prog-fill" style="width:${lvProg.pct}%;background:linear-gradient(90deg,var(--violet),var(--rose))"></div>
+      </div>
+      <div class="text-xs mt-1" style="color:var(--text-muted)">${lvProg.next ? lvProg.pct + '% to ' + lvProg.next.label : '🏆 MAX LEVEL'}</div>
+    </div>
+  ` + ALL_BADGES.map(b => {
+    const earned = b.check(state);
+    return `
+    <div class="glass-card p-3 text-center ${earned ? 'milestone-glow' : ''}" style="opacity:${earned?1:0.4}">
+      <div class="text-3xl mb-1">${b.icon}</div>
+      <div class="text-xs font-bold mb-1" style="color:var(--text)">${b.name}</div>
+      <div class="text-xs" style="color:var(--text-muted)">${b.desc}</div>
+      ${earned ? '<div class="badge mt-2" style="background:var(--green-light);color:var(--green)">EARNED</div>' : ''}
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════
+// SHARE CARD
+// ═══════════════════════════════════════════════
+function openShare(id) {
+  const g = state.goals.find(g => g.id === id);
+  if (!g) return;
+  const pct = Math.min(100, Math.round((g.saved / g.target) * 100));
+  const lv = getLevel();
+  document.getElementById('shareGoalName').textContent = g.name;
+  document.getElementById('shareGoalSub').textContent = '$' + g.saved.toLocaleString() + ' / $' + g.target.toLocaleString();
+  document.getElementById('sharePct').textContent = pct + '%';
+  document.getElementById('shareSaved').textContent = '$' + g.saved.toLocaleString();
+  document.getElementById('shareBadge').innerHTML = `${lv.icon} <span style="font-size:0.9rem;font-family:'Plus Jakarta Sans'">${lv.label}</span>`;
+  document.getElementById('shareOverlay').style.display = 'flex';
+}
+function closeShare() { document.getElementById('shareOverlay').style.display = 'none'; }
+function copyShareCard() {
+  const gname = document.getElementById('shareGoalName').textContent;
+  const pct = document.getElementById('sharePct').textContent;
+  const saved = document.getElementById('shareSaved').textContent;
+  const lv = getLevel();
+  const text = `💰 Saving up for ${gname}\n📊 ${pct} complete — ${saved} stashed\n🏅 Level: ${lv.label}\n\nMade with STASH 🔥`;
+  navigator.clipboard.writeText(text).then(() => toast('📋 Copied to clipboard!')).catch(() => toast('✅ Ready to share!'));
+  closeShare();
+}
+
+function showDriveModal() {
+  initMSAL();
+  updateOneDriveUI();
+  document.getElementById('driveModal').style.display = 'flex';
+}
+function closeDriveModal() { document.getElementById('driveModal').style.display = 'none'; }
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+initMSAL();
+renderDashboard();
+</script>
+</body>
+</html>
